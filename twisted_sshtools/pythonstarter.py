@@ -32,17 +32,6 @@ class SSHStarter(object):
     def start(self, script, fileset={}):
         return self._starter.start(["/usr/bin/env", "python", "-c", script], fileset)
         
-        
-class EC2Starter(object):
-    
-    
-    def __init__(self, username, provider, provider_keyid, provider_key, image_id, size_id, public_key_file, private_key_file, tmp_dir):
-        self._starter = starter.EC2Starter(username, provider, provider_keyid, provider_key, image_id, size_id, public_key_file, private_key_file, tmp_dir)
-        self.kill = _kill_by_shutdown
-        
-    def start(self, script, fileset={}):
-        return self._starter.start(["/usr/bin/env", "python", "-c", script], fileset)
-        
 
 def _kill_by_exit():
     """

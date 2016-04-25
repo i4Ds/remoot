@@ -145,25 +145,7 @@ class TestLocalStarter(unittest.TestCase, StarterMixin):
     
     def setUp(self):
         self.target = starter.LocalStarter(tmp_dir=self.TMP_DIR)
-        
-@unittest.skip
-class TestEC2Starter(unittest.TestCase, StarterMixin):
-    
-    PYTHON_INTERPRETER = ["/usr/bin/env", "python"]
-    TMP_DIR = test_credentials.ec2_tmp_dir
-    
-    def setUp(self):
-        
-        self.target = starter.EC2Starter(username = test_credentials.ec2_username,
-                                         provider = test_credentials.ec2_provider, 
-                                         provider_keyid = test_credentials.ec2_accesskeyid,
-                                         provider_key = test_credentials.ec2_accesskey,
-                                         image_id = test_credentials.ec2_imageid, 
-                                         size_id = test_credentials.ec2_sizeid, 
-                                         public_key_file = test_credentials.ec2_publickey, 
-                                         private_key_file = test_credentials.ec2_privatekey, 
-                                         tmp_dir = test_credentials.ec2_tmp_dir)
-        
+
 
 def started(proc):
     data = []
