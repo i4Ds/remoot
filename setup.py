@@ -15,7 +15,7 @@ else:
 
 setup(
     name = "twisted_sshtools",
-    version = "2.1.4",
+    version = "2.2.0",
     url = "http://www.s-mueller.ch",
     description='Remotely boots Python interpreters and establishes remote invocation capability with them.',
     long_description=long_description,

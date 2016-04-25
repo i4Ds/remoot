@@ -36,8 +36,8 @@ coverage.xml
 
 
 doc/html
-remoot/credentials.py
-remoot/credentials.pyc
+twisted_sshtools/credentials.py
+twisted_sshtools/credentials.pyc
 /.project
 /.pydevproject
 /.settings/org.eclipse.core.resources.prefs
