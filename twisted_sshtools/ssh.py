@@ -68,7 +68,7 @@ API, this one has less features but is easier to use.
         
     .. py:attribute:: closed
     
-        :class:`~remoot.deferutils.Event` fired when the connection has closed
+        :class:`~twisted_sshtools.deferutils.Event` fired when the connection has closed
           with a :class:`Failure` indiciating the reason, or `None` 
           if the connection was closed normally.
           
@@ -139,7 +139,7 @@ API, this one has less features but is easier to use.
         
     .. py:attribute:: closed
     
-        :class:`~remoot.deferutils.Event` fired when the connection has closed
+        :class:`~twisted_sshtools.deferutils.Event` fired when the connection has closed
           with a :class:`Failure` indiciating the reason, or `None` 
           if the connection was closed normally.
           

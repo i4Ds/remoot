@@ -5,15 +5,15 @@ import StringIO as stringio
 import tempfile
 import sys
 
-import remoot
+import twisted_sshtools
 import zipfile
 import ziploader
 
 class TestZipLoader(unittest.TestCase):
     
     def test_contains_file(self):
-        zf = zipfile.ZipFile(stringio.StringIO(ziploader.make_package_zip([remoot])))
-        self.assertTrue("remoot/ziploader.py" in zf.namelist())
+        zf = zipfile.ZipFile(stringio.StringIO(ziploader.make_package_zip([twisted_sshtools])))
+        self.assertTrue("twisted_sshtools/ziploader.py" in zf.namelist())
         
     def test_import(self):
         f = tempfile.NamedTemporaryFile(delete=False, suffix='.zip')

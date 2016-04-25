@@ -14,7 +14,7 @@ from twisted.internet import defer
 import anycall
 
 
-from remoot import smartstarter, pythonstarter
+from twisted_sshtools import smartstarter, pythonstarter
 
 class SmartStarterTest(unittest.TestCase):
     

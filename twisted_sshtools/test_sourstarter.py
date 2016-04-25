@@ -15,7 +15,7 @@ from twisted.internet import defer
 import sourblossom
 
 import test_credentials
-from remoot import sourstarter, pythonstarter
+from twisted_sshtools import sourstarter, pythonstarter
 
 class SmartStarterTest(unittest.TestCase):
     

@@ -2,20 +2,21 @@
 
 import types
 import logging
-import anycall
+import sourblossom
 import twistit
 import utwist
 import pickle
 import base64
+import random
 
 logger = logging.getLogger(__name__)
 
-from twisted.internet import reactor, defer, task
+from twisted.internet import reactor, defer
 
 import ziploader
 
 """
-The smart starter combines :mod:`starter` with the `anycall` RPC system.
+The smart starter combines :mod:`starter` with the `sourblossom` RPC system.
 
 There are several ways to help prevent created processes to survive longer
 than they should. This is an important especially because significant and costly
@@ -45,13 +46,13 @@ case where the child is working fine, but has lost contact the master.
 
     Objects representing processes have the following attributes and methods:
     
-    .. py:method:: get_function_url(function)
+    .. py:method:: register(function)
        
-       Invokes `RPCSystem.get_function_url(function)` in the remote process.
+       Invokes `sourblossom.register(function)` in the remote process.
        
-    .. py:method:: reset_watchdog()
+    .. py:method:: reset()
     
-       Resets the watch-dog timer of the rmeote process, avoiding that it terminates
+       Resets the watch-dog timer of the remote process, avoiding that it terminates
        itself because it thinks it is no longer used.
         
     .. py:method:: stop()
@@ -73,19 +74,19 @@ case where the child is working fine, but has lost contact the master.
         
     .. py:attribute:: stdout
     
-        :class:`~remoot.deferutils.Event` fired when the process produced
+        :class:`~twisted_sshtools.deferutils.Event` fired when the process produced
         standard output data. Not all implementations will be able
         to capture this data.
         
     .. py:attribute:: stderr
     
-        :class:`~remoot.deferutils.Event` fired when the process produced
+        :class:`~twisted_sshtools.deferutils.Event` fired when the process produced
         standard error data. Not all implementations will be able
         to capture this data.
         
     .. py:attribute:: exited
     
-        :class:`~remoot.deferutils.Event` fired when the process has ended
+        :class:`~twisted_sshtools.deferutils.Event` fired when the process has ended
           with a :class:`Failure` indiciating the reason, or `None` if
           the process has exited normally. Not all implementations can
           reliably provide this event.
@@ -97,22 +98,13 @@ case where the child is working fine, but has lost contact the master.
 
 class SmartStarter(object):
 
-    def __init__(self, 
-                 pythonstarter, 
-                 rpcsystem, 
-                 rpcsystem_factory, 
-                 preloaded_packages=[], 
-                 preconnect = False,
-                 data_port = 0):
+    def __init__(self, pythonstarter, childaddr, preloaded_packages=[]):
         self.pythonstarter = pythonstarter
-        self.rpcsystem = rpcsystem
-        self.rpcsystem_factory = rpcsystem_factory
+        self.childaddr = childaddr
         self.preloaded_packages = list(preloaded_packages)
         self.comm_setup_timeout = 60
         self.watchdog_timeout = 10 * 60
-        self.preconnect = preconnect
-        self.data_port = data_port
-        self.preconnect_attempts = 5
+        
         
     @twistit.yieldefer
     def start(self):
@@ -141,7 +133,7 @@ class SmartStarter(object):
                 except:
                     init_call_d.errback()
         
-        def init_call(get_function_url_url, reset_url, stop_url):
+        def init_call(register, reset, stop):
             """
             Invoked by the child via RPC.
             
@@ -159,34 +151,32 @@ class SmartStarter(object):
                 bound = types.MethodType(f, obj)
                 setattr(obj, name, bound)
                        
-            logger.info("Child process called back. get_function:%s, reset:%s, stop:%s" % 
-                        (get_function_url_url, reset_url, stop_url))           
-            
-            get_function_url = self.rpcsystem.create_function_stub(get_function_url_url)
-            reset =  self.rpcsystem.create_function_stub(reset_url)
-            stop =  self.rpcsystem.create_function_stub(stop_url)
-            
+            logger.info("Child process called back. register:%s, reset:%s, stop:%s" % 
+                        (register, reset, stop))           
+                        
             def stop_and_join():
                 stop_event = process.exited.next_event()
+                logger.debug("calling stop()")
                 d = stop()
                 def wait(_):
+                    logger.debug("stop() returned")
                     return stop_event
                 d.addCallback(wait)
                 return d
             
-            inject_function(get_function_url, process, "get_function_url")
+            inject_function(register, process, "register")
             inject_function(reset, process, "reset")
             inject_function(stop_and_join, process, "stop")
-
-            process.get_function_url_stub = get_function_url
-
+            
             process.exited.remove_callback(process_exited)
             init_call_d.callback(process)
         
-        init_url = self.rpcsystem.get_function_url(init_call)
-        boot_script = self._make_boot_script(init_url, self.rpcsystem.ownid)
-        zip_content = self._make_zip_content(self.preloaded_packages)
-        zip_filename = "code.zip"
+        uid = random.randint(0, 1000000)
+        zip_filename = "code_%s.zip" % uid
+        init = sourblossom.register(init_call)
+        boot_script = self._make_boot_script(self.childaddr, init, zip_filename)
+        zip_content = yield self._make_zip_content(self.preloaded_packages)
+        
         
         collected_stdio_output = []
         
@@ -202,7 +192,7 @@ class SmartStarter(object):
         def stdout_received(txt):
             collected_stdio_output.append(txt)
             for line in txt.splitlines():
-                logger.debug("stdout from child: %s" % repr(line))
+                logger.info("stdout from child: %s" % repr(line))
         def stderr_received(txt):
             collected_stdio_output.append(txt)
             for line in txt.splitlines():
@@ -211,31 +201,6 @@ class SmartStarter(object):
         process.stdout.add_callback(stdout_received)
         process.stderr.add_callback(stderr_received)
         process.exited.add_callback(process_exited)
-        
-        if self.preconnect:
-
-            peer_host = process.hostname
-            peer_port = self.data_port
-            
-            peer = "%s:%s" % (peer_host, peer_port)
-        
-            # Wait a bit. The process has to open the port
-            yield task.deferLater(reactor, 0.5, lambda:None)
-            
-            logger.debug("Opening connection to child %s..." % peer)
-            
-            for i in range(self.preconnect_attempts - 1):
-                try:
-                    yield self.rpcsystem.pre_connect(peer)
-                    break
-                except:
-                    logger.debug("Connection attempt %d of %d failed." % (i,self.preconnect_attempts) , exc_info=1)
-            else:
-                # final attempt.
-                # this time we don't catch errors
-                yield self.rpcsystem.pre_connect(peer)
-        
-            logger.debug("Connection to child is open")
         
         logger.debug("Waiting for process to call us...")
         
@@ -248,112 +213,86 @@ class SmartStarter(object):
         process.stdout.remove_callback(stdout_received)
         process.stderr.remove_callback(stderr_received)
         
-        logger.info("Child process started successfully")
+        logger.info("Child process started sucessfully")
         defer.returnValue(process)
         
         
 
-    def _make_boot_script(self, init_url, ownid):
+    def _make_boot_script(self, myaddr, init, zip_filename):
         
-        if self.preconnect:
-            expect_preconnect = ownid
-        else:
-            expect_preconnect = None
-
-        factory_kwargs = {"port_range" : [self.data_port]}
-        kwargs_encoded = base64.b64encode(
-                pickle.dumps(factory_kwargs, pickle.HIGHEST_PROTOCOL))
+        init_encoded = pickle.dumps(init, pickle.HIGHEST_PROTOCOL)
+        init_encoded = base64.encodestring(init_encoded)
 
         return _BOOT_SCRIPT.format(
+            zip_filename = repr(zip_filename),
             this_module = __name__, 
-            factory_module=self.rpcsystem_factory.__module__, 
-            factory_name=self.rpcsystem_factory.__name__,
-            factory_kwargs = repr(kwargs_encoded),
-            init_url=repr(init_url),
+            myaddr=myaddr, 
+            init_encoded=repr(init_encoded),
             kill_module = self.pythonstarter.kill.__module__,
             kill_name = self.pythonstarter.kill.__name__,
             comm_setup_timeout=self.comm_setup_timeout,
-            watchdog_timeout=self.watchdog_timeout,
-            expect_preconnect=repr(expect_preconnect))
+            watchdog_timeout=self.watchdog_timeout)
     
     def _make_zip_content(self, preloaded_packages):
-        import remoot
-        packages = list(preloaded_packages) + [remoot, anycall, twistit, utwist]
-        return ziploader.make_package_zip(packages)
+        import twisted_sshtools
+        import picklesize
+        packages = list(preloaded_packages) + [twisted_sshtools, sourblossom, twistit, utwist, picklesize]
+        return ziploader.cached_make_package_zip(packages)
 
 
 @twistit.yieldefer
-def _boot(rpcsystem_factory, 
-          factory_kwargs_encoded, 
-          init_url, 
-          kill_function, 
-          comm_setup_timeout,
-          watchdog_timeout, 
-          expect_preconnect):
+def _boot(myaddr, init_encoded, kill_function, comm_setup_timeout, watchdog_timeout):
     """
     Invoked by the new process.
     """
     logger.info("Starting this process...")
-
+    
     watchdog = _Watchdog(watchdog_timeout)
     
-    try:
-        logger.debug("Decoding factory arguments...")
-        factory_kwargs = pickle.loads(base64.b64decode(factory_kwargs_encoded))
+    @twistit.yieldefer
+    def shutdown():
+        try:
+            logger.debug("Closing RPC system...")
+            yield twistit.timeout_deferred(sourblossom.shutdown(), comm_setup_timeout, 
+                                           "Timeout while closing RPC System")
     
-        logger.debug("Creating RPC system...")
-        rpcsystem = yield twistit.timeout_deferred(defer.maybeDeferred(rpcsystem_factory, **factory_kwargs), 
-                                                   comm_setup_timeout, 
-                                                   "Timeout while creating RPC system")
-        anycall.RPCSystem.default = rpcsystem
-        
-        logger.debug("Opening RPC system...")
-        yield twistit.timeout_deferred(rpcsystem.open(), comm_setup_timeout, 
-                                       "Timeout while opening RPC system")
-        
-        logger.debug("Creating RPC stub and RPC urls...")
-        init = rpcsystem.create_function_stub(init_url)
-        get_function_url_url = rpcsystem.get_function_url(rpcsystem.get_function_url)
-        reset_url = rpcsystem.get_function_url(watchdog.reset)
-        stop_url = rpcsystem.get_function_url(watchdog.stop)
-        
-        if expect_preconnect is not None:
-            logger.info("Waiting for parent to open a connection to us...")
+            logger.info("Telling the reactor to stop...")
+            reactor.stop()  # @UndefinedVariable
+                
+        except:
+            logger.exception("Error while initializing process.")
             
-            d = defer.Deferred()
+        finally:
+            logger.debug("Calling kill function...")
+            kill_function()
+            logger.info("Process will now exit")
             
-            def connection_established(peer):
-                if peer == expect_preconnect:
-                    d.callback(None)
-            rpcsystem.connection_established = connection_established
-            yield twistit.timeout_deferred(d, comm_setup_timeout,  "Timeout while waiting for parent to open connection.")
-            
-            logger.info("Parent connected to us.")
+    try:
+        
+        logger.debug("Opening port...")
+        myaddr = twistit.timeout_deferred(sourblossom.listen(myaddr), comm_setup_timeout)
+        
+        logger.debug("Unpickling RPC stub...")
+        init_encoded = base64.decodestring(init_encoded)
+        init = pickle.loads(init_encoded)
+        
+        logger.debug("Creating initial set of stubs...")
+        register = sourblossom.register(sourblossom.register)
+        reset = sourblossom.register(watchdog.reset)
+        stop = sourblossom.register(watchdog.stop)
                 
         logger.info("Calling `init` of parent...")
-        d = init(get_function_url_url, reset_url, stop_url)
+        d = init(register, reset, stop)
         yield twistit.timeout_deferred(d, comm_setup_timeout, 
-                                       "Timeout during first attempt to communicate with parent.")
+               "Timeout during first attempt to communicate with parent.")
         logger.info("Process has started.")
         
         yield watchdog.start()
-        
-        logger.info("Shutting down...")
-        
-        logger.debug("Closing RPC system...")
-        yield twistit.timeout_deferred(rpcsystem.close(), comm_setup_timeout, 
-                                       "Timeout while closing RPC System")
-        
-        logger.info("Telling the reactor to stop...")
-        reactor.stop()  # @UndefinedVariable
-        
+
     except:
         logger.exception("Error while initializing process.")
-        
     finally:
-        logger.debug("Calling kill function...")
-        kill_function()
-        logger.info("Process will now exit")
+        reactor.callLater(1, shutdown)  # @UndefinedVariable
     
 
 class _Watchdog(object):
@@ -393,6 +332,7 @@ class _Watchdog(object):
         
         If we aren't running, the call is ignored.
         """
+        logger.debug("stopping")
         if self._status == "running":
             self._status = "stopped"
             self._delayed_call.cancel()
@@ -432,29 +372,28 @@ import os.path
 import traceback
 import logging
 import signal
-import time
+import site
 if hasattr(signal, "SIGHUP"):
     signal.signal(signal.SIGHUP, lambda *args:os._exit(1))
-logging.basicConfig(level=logging.DEBUG, stream=sys.stdout)
-codepath = os.path.abspath("code.zip")
+logging.basicConfig(level=logging.WARN, stream=sys.stdout)
+codepath = os.path.abspath({zip_filename})
 sys.path.insert(0, codepath)
-time.sleep(0.1)
+reload(site)
 import {kill_module}
 try:
     import {this_module}
-    import {factory_module}
     from twisted.internet import reactor
     {this_module}._boot(
-        {factory_module}.{factory_name}, 
-        {factory_kwargs},
-        {init_url}, 
+        {myaddr}, 
+        {init_encoded}, 
         {kill_module}.{kill_name},
         {comm_setup_timeout},
-        {watchdog_timeout},
-        {expect_preconnect})
+        {watchdog_timeout})
     reactor.run()
 except:
     traceback.print_exc()
     {kill_module}.{kill_name}()
     
 """
+
+import site

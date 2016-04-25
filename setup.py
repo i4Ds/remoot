@@ -14,7 +14,7 @@ else:
     os_dependendies = []
 
 setup(
-    name = "remoot",
+    name = "twisted_sshtools",
     version = "2.1.4",
     url = "http://www.s-mueller.ch",
     description='Remotely boots Python interpreters and establishes remote invocation capability with them.',

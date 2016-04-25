@@ -24,17 +24,17 @@ The starter returns a `Process` with the following API:
         
     .. py:attribute:: stdout
     
-        :class:`~remoot.deferutils.Event` fired when the process produced
+        :class:`~twisted_sshtools.deferutils.Event` fired when the process produced
         standard output data.
         
     .. py:attribute:: stderr
     
-        :class:`~remoot.deferutils.Event` fired when the process produced
+        :class:`~twisted_sshtools.deferutils.Event` fired when the process produced
         standard error data.
         
     .. py:attribute:: exited
     
-        :class:`~remoot.deferutils.Event` fired when the process has ended
+        :class:`~twisted_sshtools.deferutils.Event` fired when the process has ended
           with a :class:`Failure` indiciating the reason, or `None` if
           the process has exited normally.
     
@@ -58,8 +58,8 @@ from libcloud.compute.base import NodeImage, NodeSize, NodeAuthSSHKey
 
 from twisted.internet import defer, reactor, threads, task, error, protocol
 
-from remoot import ssh
-from remoot import deferutils
+from twisted_sshtools import ssh
+from twisted_sshtools import deferutils
 from twisted.python import failure
 
 logger = logging.getLogger(__name__)
@@ -80,7 +80,7 @@ class Starter(object):
             content. Not all starters support file transfer.
             
         :returns: The started process.
-        :rtype: deferred :class:`remoot.process.Process`.
+        :rtype: deferred :class:`twisted_sshtools.process.Process`.
         """
         raise NotImplementedError("abstract")
         
@@ -449,7 +449,7 @@ class EC2Starter(Starter):
         
         import libcloud.security
         
-        ca_bundle = pkgutil.get_data("remoot", "ca_bundle.crt")
+        ca_bundle = pkgutil.get_data("twisted_sshtools", "ca_bundle.crt")
     
         tmpdir = tempfile.mkdtemp()
         cert_file = os.path.join(tmpdir, "ca-bundle.crt")

@@ -10,7 +10,7 @@ a python script.
 import os
 import sys
 import subprocess
-from remoot import starter
+from twisted_sshtools import starter
 
 class LocalStarter(object):
     
