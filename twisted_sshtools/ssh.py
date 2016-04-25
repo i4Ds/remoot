@@ -15,7 +15,7 @@ from twisted.internet import error
 from twisted.python.failure import Failure
 from twisted.conch.ssh import filetransfer
 
-import deferutils
+from twistit import _events as deferutils
 from twisted.python import failure
 
 logger = logging.getLogger(__name__)

@@ -59,7 +59,7 @@ from libcloud.compute.base import NodeImage, NodeSize, NodeAuthSSHKey
 from twisted.internet import defer, reactor, threads, task, error, protocol
 
 from twisted_sshtools import ssh
-from twisted_sshtools import deferutils
+from twistit import _events as deferutils
 from twisted.python import failure
 
 logger = logging.getLogger(__name__)
