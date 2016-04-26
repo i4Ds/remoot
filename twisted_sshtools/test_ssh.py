@@ -1,9 +1,6 @@
 # Copyright (C) 2014 Stefan C. Mueller
 
 import unittest
-import StringIO as stringio
-
-from twisted.internet import defer
 
 from utwist import with_reactor
 
@@ -12,7 +9,6 @@ import uuid
 import test_credentials
 from twisted.internet.error import ConnectionLost
 from twisted.conch.endpoints import AuthenticationFailed
-
 
 
 class TestSSH(unittest.TestCase):

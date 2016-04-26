@@ -28,10 +28,8 @@ setup(
                         'mock>=1.0.1',
                         'pycrypto>=2.6', 
                         'pyasn1>=0.1.7', 
-                        'twisted>=15.0.0', 
-                        'apache-libcloud>=0.16.0', 
+                        'twisted>=15.0.0',
                         'utwist>=0.1.3', 
-                        'twistit>=0.2.1', 
-                        'anycall>=0.3.0',
+                        'twistit>=0.2.1',
                         'sourblossom>=0.1.1'] + os_dependendies,
 )

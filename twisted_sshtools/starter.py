@@ -44,23 +44,14 @@ The starter returns a `Process` with the following API:
     
 """
 
-import re
-import time
 import os.path
 import tempfile
-import pkgutil
-import atexit
 import logging
 
-from libcloud.compute.types import Provider, NodeState
-from libcloud.compute.providers import get_driver
-from libcloud.compute.base import NodeImage, NodeSize, NodeAuthSSHKey
-
-from twisted.internet import defer, reactor, threads, task, error, protocol
+from twisted.internet import defer, reactor, threads, error, protocol
 
 from twisted_sshtools import ssh
 from twistit import _events as deferutils
-from twisted.python import failure
 
 logger = logging.getLogger(__name__)
 
