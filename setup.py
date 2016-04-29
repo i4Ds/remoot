@@ -17,7 +17,7 @@ setup(
     name = "twisted_sshtools",
     version = "2.2.0",
     url = "https://github.com/i4Ds/twisted-sshtools",
-    description='Remotely boots Python interpreters and establishes remote invocation capability with them.',
+    description='Start processes via SSH with twisted.',
     long_description=long_description,
     author='Ivo Nussbaumer',
     author_email='ivo.nussbaumer@fhnw.ch',
