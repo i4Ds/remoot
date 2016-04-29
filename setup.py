@@ -15,7 +15,7 @@ else:
 
 setup(
     name = "twisted_sshtools",
-    version = "2.2.0",
+    version = "2.2.1",
     url = "https://github.com/i4Ds/twisted-sshtools",
     description='Start processes via SSH with twisted.',
     long_description=long_description,
@@ -29,5 +29,6 @@ setup(
                         'pyasn1>=0.1.7', 
                         'twisted>=15.0.0',
                         'utwist>=0.1.3', 
-                        'twistit>=0.2.1'] + os_dependendies,
+                        'twistit>=0.2.1',
+                        'cryptography>=1.2.2'] + os_dependendies,
 )
