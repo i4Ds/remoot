@@ -1,2 +1,4 @@
 # twisted_sshtools
-Remotely boots Python interpreters and establishes remote invocation capability with them.
+start processes via SSH with twisted
+
+stripped-down version of https://github.com/smurn/remoot

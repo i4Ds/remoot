@@ -1,4 +1,6 @@
 twisted_sshtools
-======
+================
+start processes via SSH with twisted
 
-Python remote interpreter boot-up library
+stripped-down version of https://github.com/smurn/remoot
+
