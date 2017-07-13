@@ -130,6 +130,7 @@ class _LocalProcess(object):
         self.stdout = deferutils.Event()
         self.stderr = deferutils.Event()
         self.exited = deferutils.Event()
+        self.ended  = deferutils.Event()
         self.hostname = "localhost"
 
     def send_stdin(self, data):
@@ -163,10 +164,15 @@ class _LocalProcessProtocol(protocol.ProcessProtocol):
     def outReceived(self, data):
         self.process.stdout.fire(data)
         
-    def processEnded(self, status):
+    def processExited(self, status):
         if status and status.check(error.ProcessDone):
             status = None
         self.process.exited.fire(status)
+        
+    def processEnded(self, status):
+        if status and status.check(error.ProcessDone):
+            status = None
+        self.process.ended.fire(status)
         
 class SSHStarter(Starter):
     """
