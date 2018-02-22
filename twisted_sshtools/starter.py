@@ -47,6 +47,7 @@ The starter returns a `Process` with the following API:
 import os.path
 import tempfile
 import logging
+import sys
 
 from twisted.internet import defer, reactor, threads, error, protocol
 
@@ -90,11 +91,16 @@ class LocalStarter(Starter):
             # we use blocking IO to create the files. Twisted's `fdesc` is of no use since
             # `O_NONBLOCK` is ignored on regular files (it is for sockets, really).
             # So we do this in a thread instead.
-            for filename, content in fileset.iteritems():
-                path = os.path.join(tmp_dir, filename)
-                with open(path, 'wb') as f:
-                    f.write(content)
-                    
+            if(sys.version_info > (3, 0)):
+                for filename, content in fileset.items():
+                    path = os.path.join(tmp_dir, filename)
+                    with open(path, 'wb') as f:
+                        f.write(content)
+            else:
+                for filename, content in fileset.iteritems():
+                    path = os.path.join(tmp_dir, filename)
+                    with open(path, 'wb') as f:
+                        f.write(content)                    
                     
         def spawn_process(command, path=None):
             protocol = _LocalProcessProtocol()
@@ -183,7 +189,10 @@ class SSHStarter(Starter):
         self.hostname = hostname
         self.username = username
         self.password = password
-        self.private_keys = map(_read_file, private_key_files) + list(private_keys)
+        if(sys.version_info > (3, 0)):
+            self.private_keys = list(map(_read_file, private_key_files)) + list(private_keys)
+        else:
+             self.private_keys = map(_read_file, private_key_files) + list(private_keys)
         self.tmp_dir = tmp_dir
 
 
@@ -222,8 +231,12 @@ class SSHStarter(Starter):
             if fileset:
                 logger.debug("Opening SFTP session to %s" % self.hostname)
                 d = connection.open_sftp()
-                for path, content in fileset.iteritems():
-                    d.addCallback(lambda sftp:transmit_file(sftp, path, content))
+                if(sys.version_info > (3, 0)):
+                    for path, content in fileset.items():
+                        d.addCallback(lambda sftp:transmit_file(sftp, path, content))
+                else:
+                    for path, content in fileset.iteritems():
+                        d.addCallback(lambda sftp:transmit_file(sftp, path, content))
                 d.addCallback(lambda sftp:sftp.close())
             else:
                 d = defer.succeed(None)
@@ -310,7 +323,10 @@ def _bash_escaping(string):
         most_sig = (ascii_code >> 6) % 8
         return "%s%s%s" % (most_sig, mid_sig, least_sig)
 
-    from cStringIO import StringIO
+    if(sys.version_info > (3, 0)):
+        from io import StringIO
+    else:
+        from cStringIO import StringIO
     strfile = StringIO()
     strfile.write("$'")
     for char in string:

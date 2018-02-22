@@ -7,9 +7,12 @@ import os.path
 import tempfile
 from utwist import with_reactor
 
-import starter
-import test_credentials
-
+if(sys.version_info > (3, 0)):
+    from . import starter
+    from . import test_credentials
+else:
+    import starter
+    import test_credentials
 
 class StarterMixin(object):
     

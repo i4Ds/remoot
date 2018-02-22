@@ -1,12 +1,17 @@
 # Copyright (C) 2014 Stefan C. Mueller
 
 import unittest
+import sys
 
 from utwist import with_reactor
 
-import ssh
+if(sys.version_info > (3, 0)):
+    from . import ssh
+    from . import test_credentials
+else:
+    import ssh
+    import test_credentials
 import uuid
-import test_credentials
 from twisted.internet.error import ConnectionLost
 from twisted.conch.endpoints import AuthenticationFailed
 

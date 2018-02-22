@@ -56,8 +56,11 @@ ec2_privatekey = None
 ec2_tmp_dir = None
 
 import os.path
-import ConfigParser as configparser
-
+import sys
+if(sys.version_info > (3, 0)):
+    import configparser as configparser
+else:
+    import ConfigParser as configparser
 
 def load_credentials():
     """

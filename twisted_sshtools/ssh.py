@@ -1,8 +1,13 @@
 # Copyright (C) 2014 Stefan C. Mueller
 
 import struct
-import StringIO as stringio
 import logging
+import sys
+import types
+if(sys.version_info > (3, 0)):
+	import io as stringio
+else:
+	import StringIO as stringio
 
 from twisted.conch.ssh import transport
 from twisted.conch.ssh import keys, userauth
@@ -19,6 +24,12 @@ from twistit import _events as deferutils
 from twisted.python import failure
 
 logger = logging.getLogger(__name__)
+
+# Monkey-Patch of python3 __next__ to twisted ClientDirectory
+if "__next__" not in [func for func in dir(filetransfer.ClientDirectory)]:
+    def __next__(self):
+        return self.next()
+    filetransfer.ClientDirectory.__next__ = __next__
 
 """
 Simple API for SSH and SFTP using `twisted.conch`. Conch is a rather low-level
@@ -125,7 +136,7 @@ API, this one has less features but is easier to use.
         Lists the files and directories within a directory.
         
         :param str path: Absolute path to the directory.
-        
+
         :returns: Deferred list of `(name, isdir)` tuples. `name` is
           relative to the directory (only the name, no path) and 
           `isdir` is `True` for directories and `False` for files.
@@ -257,6 +268,10 @@ class _SSHConnectionImpl(object):
             return process
         
         logger.debug("Opening channel for 'execute'.")
+
+        #Convert command to bytes
+        if(sys.version_info > (3, 0)): command = bytes(command, 'utf-8')
+
         channel = _ExecutionChannel(command=command, conn=self._connection)
         self._connection.openChannel(channel)
         d = channel.executed
@@ -295,7 +310,11 @@ class _SFTPConnectionImpl(object):
         self.closed = deferutils.Event()
  
     def read_file(self, path):
-        bfr = stringio.StringIO()
+        #Python 3 works with byte streams on stdout
+        if(sys.version_info > (3, 0)):
+            bfr = stringio.BytesIO()
+        else:
+            bfr = stringio.StringIO()
         
         def eof_handling(error):
             if error.type == EOFError:
@@ -306,8 +325,13 @@ class _SFTPConnectionImpl(object):
         def file_opened(file_interface):
             def injest(data):
                 if data:
-                    bfr.write(data)
-                    d = defer.maybeDeferred(file_interface.readChunk, bfr.len, self.JUNK_SIZE)
+                    if(sys.version_info > (3, 0)):
+                        bfr_len = bfr.write(data)
+                    else:
+                        bfr.write(data)
+                        bfr_len = bfr.len
+
+                    d = defer.maybeDeferred(file_interface.readChunk, bfr_len, self.JUNK_SIZE)
                     d.addCallback(injest)
                     d.addErrback(eof_handling)
                     return d
@@ -320,17 +344,23 @@ class _SFTPConnectionImpl(object):
             def closed(_):
                 return bfr.getvalue()
                 
-            d = defer.maybeDeferred(file_interface.readChunk, bfr.len, self.JUNK_SIZE)
+            d = defer.maybeDeferred(file_interface.readChunk, 0, self.JUNK_SIZE)
             d.addCallback(injest)
             d.addCallback(read_completed)
             d.addCallback(closed)
             return d
-        
+
+        # Convert path from str to bytes
+        if(sys.version_info > (3, 0)): path = bytes(path, 'utf-8')
         d = self._client.openFile(path, filetransfer.FXF_READ, {})
         d.addCallback(file_opened)
         return d
     
     def write_file(self, path, content):
+        # Convert path from str to bytes
+        if (sys.version_info > (3, 0)): path = bytes(path, 'utf-8')
+        if (sys.version_info > (3, 0)): content = bytes(content, 'utf-8')
+
         def file_opened(file_interface):
             
             def write_junk(index):
@@ -355,17 +385,23 @@ class _SFTPConnectionImpl(object):
         return d
  
     def delete_file(self, path):
+        # Convert path from str to bytes
+        if (sys.version_info > (3, 0)): path = bytes(path, 'utf-8')
         return self._client.removeFile(path)
  
     def create_directory(self, path):
+        # Convert path from str to bytes
+        if (sys.version_info > (3, 0)): path = bytes(path, 'utf-8')
         return self._client.makeDirectory(path, {})
      
     def delete_directory(self, path):
+        # Convert path from str to bytes
+        if (sys.version_info > (3, 0)): path = bytes(path, 'utf-8')
         return self._client.removeDirectory(path)
      
     def list_directory(self, path):
         def opened(iterable):
-            
+
             def ignore_stop(error):
                 # Should be StopIteration, but due to
                 # https://twistedmatrix.com/trac/ticket/7322
@@ -378,7 +414,7 @@ class _SFTPConnectionImpl(object):
             def injest_item(item):
                 if item:
                     items.append(item)
-                d = defer.maybeDeferred(iterator.next)
+                d = defer.maybeDeferred(iterator.__next__)
                 d.addCallback(injest_item)
                 d.addErrback(ignore_stop)
                 return d
@@ -395,7 +431,9 @@ class _SFTPConnectionImpl(object):
             d.addCallback(read_all)
             d.addCallback(iterator_closed)
             return d
-            
+
+        # Convert path to bytes
+        if (sys.version_info > (3, 0)): path = bytes(path, 'utf-8')
         d = self._client.openDirectory(path)
         d.addCallback(opened)
         return d
@@ -538,6 +576,10 @@ class _ClientUserAuth(userauth.SSHUserAuthClient):
         self.private_keys = list(private_keys)
         self._password_sent = False
         self.auth_failed_message = None
+        if(sys.version_info > (3, 0)):
+            #Convert password and user to bytes
+            self.password = bytes(self.password, 'utf-8')
+            self.user = bytes(self.user, 'utf-8')
         
     def serviceStarted(self):
         
@@ -590,7 +632,8 @@ class _ClientConnection(connection.SSHConnection):
 
 class _ExecutionChannel(channel.SSHChannel):
     
-    name = 'session'
+    name = b'session' if (sys.version_info > (3, 0)) else 'session'
+    exec_str = b'exec' if (sys.version_info > (3, 0)) else 'exec'
     
     def __init__(self, command, localWindow=0, localMaxPacket=0, 
         remoteWindow=0, remoteMaxPacket=0, 
@@ -624,7 +667,7 @@ class _ExecutionChannel(channel.SSHChannel):
             self.status = "stopped"
             self.executed.errback(reason)
         
-        d = self.conn.sendRequest(self, 'exec', common.NS(self._command), wantReply=True)
+        d = self.conn.sendRequest(self, self.exec_str, common.NS(self._command), wantReply=True)
         self.status = "starting"
         d.addCallbacks(success, failed)
 
@@ -688,8 +731,10 @@ class _ExecutionChannel(channel.SSHChannel):
             self.process = None
 
 class _SFTPChannel(channel.SSHChannel):
-     
-    name = 'session'
+
+    name = b'session' if (sys.version_info > (3, 0)) else 'session'
+    subsystem_str = b'subsystem' if (sys.version_info > (3, 0)) else 'subsystem'
+    sftp_str = b'sftp' if (sys.version_info > (3, 0)) else 'sftp'
      
     def __init__(self, *args, **kwargs):
         channel.SSHChannel.__init__(self, *args, **kwargs)
@@ -704,7 +749,7 @@ class _SFTPChannel(channel.SSHChannel):
             self.dataReceived = client.dataReceived
             self.sftp_connection = _SFTPConnectionImpl(client, self)
             return self.sftp_connection
-        d = self.conn.sendRequest(self, 'subsystem', common.NS('sftp'), wantReply=True)
+        d = self.conn.sendRequest(self, self.subsystem_str, common.NS(self.sftp_str), wantReply=True)
         d.addCallback(sftp_open)
         d.chainDeferred(self.sftp_connection_d)
 
