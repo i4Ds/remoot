@@ -15,6 +15,19 @@ import uuid
 from twisted.internet.error import ConnectionLost
 from twisted.conch.endpoints import AuthenticationFailed
 
+# Used to convert byte strings to strings as python 3 uses only b'' for stdout
+def bToStr(input):
+    if (sys.version_info < (3, 0)):
+        return input
+    try:
+        return input.decode("utf-8")
+    except AttributeError:
+        pass
+    try:
+        return [element.decode("utf-8") for element in input]
+    except AttributeError:
+        pass
+    return input
 
 class TestSSH(unittest.TestCase):
     """
@@ -82,10 +95,12 @@ class TestSSH(unittest.TestCase):
             d = conn.closed.next_event()
             conn.close()
             return d
-        
+
+        keyfile = open(test_credentials.ssh_privatekey,'r')
+
         conn = ssh.connect(test_credentials.ssh_hostname, 
                            test_credentials.ssh_user, 
-                           private_keys=[file(test_credentials.ssh_privatekey).read()])
+                           private_keys=[keyfile.read()])
         
         conn.addCallback(on_connected)
         return conn
@@ -103,7 +118,7 @@ class TestSSH(unittest.TestCase):
             return process.exited.next_event()
             
         def on_exited(_):
-            self.assertTrue("hello" in "".join(data), msg="Expected to find 'hello' in output. Got: %s" % repr(data))
+            self.assertTrue("hello" in "".join(bToStr(data)), msg="Expected to find 'hello' in output. Got: %s" % repr(bToStr(data)))
             return conns[0].close()
         
         data = []
@@ -157,7 +172,7 @@ class TestSSH(unittest.TestCase):
             return process.exited.next_event()
         
         def on_exited(_):
-            self.assertTrue("hello" in "".join(data), msg="Expected to find 'hello' in output. Got: %s" % repr(data))
+            self.assertTrue("hello" in "".join(bToStr(data)), msg="Expected to find 'hello' in output. Got: %s" % repr(bToStr(data)))
         
         
         data = []
@@ -201,7 +216,7 @@ class TestSSH(unittest.TestCase):
             return process.exited.next_event()
         
         def on_exited(_):
-            self.assertTrue("hello" in "".join(data), msg="Expected to find 'hello' in output. Got: %s" % repr(data))
+            self.assertTrue("hello" in "".join(bToStr(data)), msg="Expected to find 'hello' in output. Got: %s" % repr(bToStr(data)))
         
         
         data = []
@@ -352,7 +367,7 @@ class TestSFTP(unittest.TestCase):
             return self.sftp.read_file(path)
         
         def read(data):
-            self.assertEqual("Hello World!", data)
+            self.assertEqual("Hello World!", bToStr(data))
         
         path = test_credentials.ssh_tmp_dir + "/" + str(uuid.uuid4())
         d = self.sftp.write_file(path, "Hello World!")
@@ -370,8 +385,8 @@ class TestSFTP(unittest.TestCase):
             return self.sftp.read_file(path)
         
         def read(data):
-            self.assertEqual(content, data)
-        
+            self.assertEqual(content, bToStr(data))
+
         path = test_credentials.ssh_tmp_dir + "/" + str(uuid.uuid4())
         d = self.sftp.write_file(path, content)
         d.addCallback(file_created)
@@ -388,7 +403,7 @@ class TestSFTP(unittest.TestCase):
             return self.sftp.read_file(path)
         
         def read(data):
-            self.assertEqual(content, data)
+            self.assertEqual(content, bToStr(data))
         
         path = test_credentials.ssh_tmp_dir + "/" + str(uuid.uuid4())
         d = self.sftp.write_file(path, content)
@@ -405,7 +420,7 @@ class TestSFTP(unittest.TestCase):
             return self.sftp.read_file(path)
         
         def read(data):
-            self.assertEqual(content, data)
+            self.assertEqual(content, bToStr(data))
         
         path = test_credentials.ssh_tmp_dir + "/" + str(uuid.uuid4())
         d = self.sftp.write_file(path, content)
@@ -421,7 +436,7 @@ class TestSFTP(unittest.TestCase):
             return self.sftp.read_file(path)
         
         def read(data):
-            self.assertEqual(content, data)
+            self.assertEqual(content, bToStr(data))
         
         path = test_credentials.ssh_tmp_dir + "/" + str(uuid.uuid4())
         d = self.sftp.write_file(path, content)
@@ -453,7 +468,10 @@ class TestSFTP(unittest.TestCase):
              ('file2', False),
              ('dir1', True),
              ('dir2', True)))
-            
+
+            if (sys.version_info > (3, 0)):
+                items = {(content[0].decode("utf-8"),content[1]) for content in items}
+
             self.assertEqual(expected, items)
             
         directory = test_credentials.ssh_tmp_dir + "/" + str(uuid.uuid4())
@@ -494,7 +512,7 @@ class TestSFTPDirect(unittest.TestCase):
                 return sftp.read_file(path)
         
             def read(data):
-                self.assertEqual("Hello World!", data)
+                self.assertEqual("Hello World!", bToStr(data))
             
             path = test_credentials.ssh_tmp_dir + "/" + str(uuid.uuid4())
             d = sftp.write_file(path, "Hello World!")

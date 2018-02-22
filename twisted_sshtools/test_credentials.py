@@ -74,7 +74,7 @@ def load_credentials():
     
     * Home directory
     
-    The ini file should have the a section `[test_credentials]` containing
+    The ini file should have the a section `user=simons` containing
     the key-value pairs that will be come variables of this module.
     """
     
@@ -95,4 +95,3 @@ def load_credentials():
     
     for key, value in parser.items("test_credentials"):
         globals()[key] = value
-        

@@ -1,4 +1,7 @@
 *.py[cod]
+.eggs/
+.idea/
+
 
 # C extensions
 *.so

@@ -95,7 +95,7 @@ class LocalStarter(Starter):
                 for filename, content in fileset.items():
                     path = os.path.join(tmp_dir, filename)
                     with open(path, 'wb') as f:
-                        f.write(content)
+                        f.write(bytes(content, 'utf-8'))
             else:
                 for filename, content in fileset.iteritems():
                     path = os.path.join(tmp_dir, filename)

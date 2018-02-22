@@ -14,6 +14,20 @@ else:
     import starter
     import test_credentials
 
+# Used to convert byte strings to strings as python 3 uses only b'' for stdout
+def bToStr(input):
+    if (sys.version_info < (3, 0)):
+        return input
+    try:
+        return input.decode("utf-8")
+    except AttributeError:
+        pass
+    try:
+        return [element.decode("utf-8") for element in input]
+    except AttributeError:
+        pass
+    return input
+
 class StarterMixin(object):
     
     #: List of strings for the command that starts a python interpreter.
@@ -29,7 +43,7 @@ class StarterMixin(object):
     def test_start(self):
 
         def exited(data):
-            self.assertEqual("hello", data)
+            self.assertEqual("hello", bToStr(data))
         
         d = self.target.start(self.PYTHON_INTERPRETER + ["-c", "import sys;sys.stdout.write('hello')"])
         d.addCallback(started)
@@ -93,7 +107,7 @@ class StarterMixin(object):
     def test_start_with_file(self):
         
         def exited(data):
-            self.assertEqual(fileset[filename], data)
+            self.assertEqual(fileset[filename], bToStr(data))
         
         filename = str(uuid.uuid4())
         
@@ -109,7 +123,7 @@ class StarterMixin(object):
     def test_working_directory(self):
         
         def exited(data):
-            self.assertEqual(self.TMP_DIR, data)
+            self.assertEqual(self.TMP_DIR, bToStr(data))
         
         filename = str(uuid.uuid4())
         
@@ -155,5 +169,8 @@ def started(proc):
     proc.stdout.add_callback(data.append)
     proc.stderr.add_callback(sys.stderr.write)
     d = proc.exited.next_event()
-    d.addCallback(lambda _:"".join(data))
+    if (sys.version_info > (3, 0)):
+        d.addCallback(lambda _: b''.join(data))
+    else:
+        d.addCallback(lambda _:"".join(data))
     return d

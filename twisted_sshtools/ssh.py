@@ -326,7 +326,8 @@ class _SFTPConnectionImpl(object):
             def injest(data):
                 if data:
                     if(sys.version_info > (3, 0)):
-                        bfr_len = bfr.write(data)
+                        bfr.write(data)
+                        bfr_len = bfr.seek(0, 2)
                     else:
                         bfr.write(data)
                         bfr_len = bfr.len
@@ -423,6 +424,9 @@ class _SFTPConnectionImpl(object):
                 return defer.maybeDeferred(iterable.close)
 
             def iterator_closed(_):
+                if (sys.version_info > (3, 0)):
+                    return [(item[0], item[1][0] == 100 if item[1] else False) for item in items if
+                            item[0] != b'.' and item[0] != b'..']
                 return [(item[0], item[1][0] == 'd' if item[1] else False) for item in items if item[0] != "." and item[0] != ".."]
             
             iterator = iter(iterable)
@@ -578,7 +582,7 @@ class _ClientUserAuth(userauth.SSHUserAuthClient):
         self.auth_failed_message = None
         if(sys.version_info > (3, 0)):
             #Convert password and user to bytes
-            self.password = bytes(self.password, 'utf-8')
+            self.password = bytes(self.password, 'utf-8') if self.password is not None else None
             self.user = bytes(self.user, 'utf-8')
         
     def serviceStarted(self):
